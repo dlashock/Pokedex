@@ -1,0 +1,53 @@
+#Executable
+pokedexcli
+
+# Go
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+# Go workspace file
+go.work
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pdb
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+*.sqlite3
+.env
+.venv/
+venv/
+ENV/
+env/
+*.cover
+.coverage
+htmlcov/
+.mypy_cache/
+.pytest_cache/
+.tox/
+.cache/
+*.db
+*.pot
+*.mo
+
+# General
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+*.bak
+*.tmp
