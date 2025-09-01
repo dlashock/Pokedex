@@ -1,5 +1,6 @@
 #Executable
 pokedexcli
+repl.log
 
 # Go
 bin/
