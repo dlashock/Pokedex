@@ -6,53 +6,29 @@ import (
 	"os"
 )
 
-type cliCommand struct {
-	name        string
-	description string
-	callback    func() error
-}
-
-var commands map[string]cliCommand
-
-func commandExit() error {
-	fmt.Println("Closing the Pokedex... Goodbye!")
-	os.Exit(0)
-	return nil
-}
-
-func commandHelp() error {
-	fmt.Println("Welcome to the Pokedex!")
-	fmt.Println("Usage:")
-	fmt.Println()
-	for _, cmd := range commands {
-		fmt.Printf("%s: %s\n", cmd.name, cmd.description)
-	}
-	return nil
-}
-
 func main() {
-	commands = map[string]cliCommand{
-		"help": {
-			name:        "help",
-			description: "Displays a help message",
-			callback:    commandHelp,
-		},
-		"exit": {
-			name:        "exit",
-			description: "Exit the Pokedex",
-			callback:    commandExit,
-		},
-	}
+	//Create map for all possible commands
+	commands := createCommandMap()
+
+	//Initialize input buffer
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Print("Pokedex > ")
+
+	//Begin accepting input
 	for scanner.Scan() {
 		line := scanner.Text()
+
+		//Clean provided input by separating by whitespace and forcing lowecase
 		words := cleanInput(line)
+
+		//Ask for input if none was provided
 		if len(words) == 0 {
 			fmt.Println("Please enter a command")
 			fmt.Print("Pokedex > ")
 			continue
 		}
+
+		//Check if the command exists in the command map and execute if so
 		command, exists := commands[words[0]]
 		if exists {
 			err := command.callback()
@@ -62,7 +38,8 @@ func main() {
 		} else {
 			fmt.Println("Unknown command")
 		}
-		fmt.Print("Pokedex > ")
-	}
 
+		//Print line to start the loop over
+		fmt.Print("\nPokedex > ")
+	}
 }
