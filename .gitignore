@@ -1,3 +1,7 @@
+#Claude AI
+.claude/
+CLAUDE.md
+
 #Executable
 pokedexcli
 repl.log
