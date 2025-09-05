@@ -11,17 +11,15 @@ import (
 type locationArea struct {
 	Count    int    `json:"count"`
 	Next     string `json:"next"`
-	Previous any    `json:"previous"`
+	Previous string `json:"previous"`
 	Results  []struct {
 		Name string `json:"name"`
 		URL  string `json:"url"`
 	} `json:"results"`
 }
 
-func ApiRequest() (locationArea, error) {
+func ApiRequest(url string) (locationArea, error) {
 	var data locationArea
-
-	url := "https://pokeapi.co/api/v2/location-area/"
 	res, err := http.Get(url)
 	if err != nil {
 		return data, fmt.Errorf("Error requesting data: %w", err)
