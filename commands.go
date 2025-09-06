@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"os"
 	"pokedexcli/internal/api"
+	"pokedexcli/internal/pokecache"
+	"time"
 )
 
 type config struct {
-	next     string
-	previous string
+	next      string
+	previous  string
+	pokecache *pokecache.Cache
 }
 
 type cliCommand struct {
@@ -19,25 +22,27 @@ type cliCommand struct {
 }
 
 func createCommandMap() map[string]cliCommand {
+	freshCache := pokecache.NewCache(5 * time.Minute)
 	commands := map[string]cliCommand{}
 	commands["help"] = cliCommand{
 		name:        "help",
 		description: "Displays a help message",
 		callback:    func() error { return commandHelp(commands) },
-		config:      &config{},
+		config:      &config{pokecache: freshCache},
 	}
 	commands["exit"] = cliCommand{
 		name:        "exit",
 		description: "Exit the Pokedex",
 		callback:    commandExit,
-		config:      &config{},
+		config:      &config{pokecache: freshCache},
 	}
 	commands["map"] = cliCommand{
 		name:        "map",
 		description: "Display a list of the next 20 location areas in the Pokemon games",
 		callback:    func() error { return commandMap(commands) },
 		config: &config{
-			next: "https://pokeapi.co/api/v2/location-area/",
+			next:      "https://pokeapi.co/api/v2/location-area/",
+			pokecache: freshCache,
 		},
 	}
 	commands["mapb"] = cliCommand{
@@ -45,7 +50,8 @@ func createCommandMap() map[string]cliCommand {
 		description: "Display a list of the previous 20 location areas in the Pokemon games",
 		callback:    func() error { return commandMapb(commands) },
 		config: &config{
-			previous: "",
+			previous:  "",
+			pokecache: freshCache,
 		},
 	}
 	return commands

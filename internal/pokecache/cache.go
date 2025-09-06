@@ -1,7 +1,6 @@
 package pokecache
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
@@ -11,23 +10,33 @@ type cacheEntry struct {
 	val       []byte
 }
 
-type cache struct {
+type Cache struct {
 	entry map[string]cacheEntry
 	mu    sync.Mutex
 }
 
-func NewCache(interval time.Duration) *cache {
-	c := &cache{
+func NewCache(interval time.Duration) *Cache {
+	c := &Cache{
 		entry: make(map[string]cacheEntry),
 	}
+	go c.reapLoop(interval)
 	return c
 }
 
-func (c *cache) Add(key string, val []byte) {
-	if c == nil {
-		fmt.Println("Initializing cache")
-		c = NewCache(5)
+func (c *Cache) reapLoop(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	for range ticker.C {
+		c.mu.Lock()
+		for key := range c.entry {
+			if time.Since(c.entry[key].createdAt) > interval {
+				delete(c.entry, key)
+			}
+		}
+		c.mu.Unlock()
 	}
+}
+
+func (c *Cache) Add(key string, val []byte) {
 	var newEntry = cacheEntry{}
 	newEntry.createdAt = time.Now()
 	newEntry.val = val
@@ -36,10 +45,10 @@ func (c *cache) Add(key string, val []byte) {
 	c.entry[key] = newEntry
 }
 
-func (c *cache) Get(key string) ([]byte, bool) {
+func (c *Cache) Get(key string) ([]byte, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if ce, exists := c.entry[key]; exists {
-		c.mu.Lock()
-		defer c.mu.Unlock()
 		return ce.val, exists
 	}
 	return nil, false
