@@ -74,7 +74,7 @@ func commandHelp(commands map[string]cliCommand) error {
 }
 
 func commandMap(commands map[string]cliCommand) error {
-	areas, err := api.ApiRequest(commands["map"].config.next)
+	areas, err := api.ApiRequest(commands["map"].config.next, commands["map"].config.pokecache)
 	if err != nil {
 		return fmt.Errorf("Error making API call: %w", err)
 	}
@@ -97,7 +97,7 @@ func commandMapb(commands map[string]cliCommand) error {
 		}
 	}
 
-	areas, err := api.ApiRequest(commands["mapb"].config.previous)
+	areas, err := api.ApiRequest(commands["mapb"].config.previous, commands["mapb"].config.pokecache)
 	if err != nil {
 		return fmt.Errorf("Error making API call: %w", err)
 	}
