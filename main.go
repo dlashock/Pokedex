@@ -31,7 +31,7 @@ func main() {
 		//Check if the command exists in the command map and execute if so
 		command, exists := commands[words[0]]
 		if exists {
-			err := command.callback()
+			err := command.callback(words[1])
 			if err != nil {
 				fmt.Printf("An error has occurred: %s\n", err)
 			}

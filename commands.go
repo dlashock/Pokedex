@@ -17,7 +17,7 @@ type config struct {
 type cliCommand struct {
 	name        string
 	description string
-	callback    func() error
+	callback    func(arg string) error
 	config      *config
 }
 
@@ -27,7 +27,7 @@ func createCommandMap() map[string]cliCommand {
 	commands["help"] = cliCommand{
 		name:        "help",
 		description: "Displays a help message",
-		callback:    func() error { return commandHelp(commands) },
+		callback:    func(arg string) error { return commandHelp(arg, commands) },
 		config:      &config{pokecache: freshCache},
 	}
 	commands["exit"] = cliCommand{
@@ -39,7 +39,7 @@ func createCommandMap() map[string]cliCommand {
 	commands["map"] = cliCommand{
 		name:        "map",
 		description: "Display a list of the next 20 location areas in the Pokemon games",
-		callback:    func() error { return commandMap(commands) },
+		callback:    func(arg string) error { return commandMap(arg, commands) },
 		config: &config{
 			next:      "https://pokeapi.co/api/v2/location-area/",
 			pokecache: freshCache,
@@ -48,22 +48,30 @@ func createCommandMap() map[string]cliCommand {
 	commands["mapb"] = cliCommand{
 		name:        "mapb",
 		description: "Display a list of the previous 20 location areas in the Pokemon games",
-		callback:    func() error { return commandMapb(commands) },
+		callback:    func(arg string) error { return commandMapb(arg, commands) },
 		config: &config{
 			previous:  "",
+			pokecache: freshCache,
+		},
+	}
+	commands["explore"] = cliCommand{
+		name:        "explore",
+		description: "Display a list of the previous 20 location areas in the Pokemon games",
+		callback:    func(arg string) error { return commandExplore(arg, commands) },
+		config: &config{
 			pokecache: freshCache,
 		},
 	}
 	return commands
 }
 
-func commandExit() error {
+func commandExit(_ string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(commands map[string]cliCommand) error {
+func commandHelp(_ string, commands map[string]cliCommand) error {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 	fmt.Println()
@@ -73,7 +81,7 @@ func commandHelp(commands map[string]cliCommand) error {
 	return nil
 }
 
-func commandMap(commands map[string]cliCommand) error {
+func commandMap(_ string, commands map[string]cliCommand) error {
 	areas, err := api.ApiRequest(commands["map"].config.next, commands["map"].config.pokecache)
 	if err != nil {
 		return fmt.Errorf("Error making API call: %w", err)
@@ -89,7 +97,7 @@ func commandMap(commands map[string]cliCommand) error {
 	return nil
 }
 
-func commandMapb(commands map[string]cliCommand) error {
+func commandMapb(_ string, commands map[string]cliCommand) error {
 	if commands["mapb"].config != nil {
 		if commands["mapb"].config.previous == "" {
 			fmt.Print("You are already on the first page.")
@@ -109,5 +117,10 @@ func commandMapb(commands map[string]cliCommand) error {
 	commands["map"].config.next = areas.Next
 	commands["mapb"].config.previous = areas.Previous
 
+	return nil
+}
+
+func commandExplore(arg string, commands map[string]cliCommand) error {
+	fmt.Printf("Exploring %s...\n", arg)
 	return nil
 }
