@@ -31,15 +31,22 @@ func main() {
 		//Check if the command exists in the command map and execute if so
 		command, exists := commands[words[0]]
 		if exists {
-			err := command.callback(words[1])
-			if err != nil {
-				fmt.Printf("An error has occurred: %s\n", err)
+			if len(words) > 1 {
+				err := command.callback(words[1])
+				if err != nil {
+					fmt.Printf("An error has occurred: %s\n", err)
+				}
+			} else {
+				err := command.callback("")
+				if err != nil {
+					fmt.Printf("An error has occurred: %s\n", err)
+				}
 			}
 		} else {
 			fmt.Println("Unknown command")
 		}
 
 		//Print line to start the loop over
-		fmt.Print("\nPokedex > ")
+		fmt.Print("Pokedex > ")
 	}
 }

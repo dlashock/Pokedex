@@ -12,7 +12,7 @@ import (
 
 func TestApiRequestCacheMiss(t *testing.T) {
 	// Create test data
-	testData := locationArea{
+	testData := LocationArea{
 		Count: 1281,
 		Next:  "https://pokeapi.co/api/v2/location-area/?offset=20&limit=20",
 		Results: []struct {
@@ -40,13 +40,25 @@ func TestApiRequestCacheMiss(t *testing.T) {
 		return
 	}
 
-	if result.Count != testData.Count {
-		t.Errorf("expected count %d, got %d", testData.Count, result.Count)
+	if result == nil {
+		t.Errorf("expected response data, got nil")
 		return
 	}
 
-	if len(result.Results) != len(testData.Results) {
-		t.Errorf("expected %d results, got %d", len(testData.Results), len(result.Results))
+	// Parse the returned JSON to verify it's correct
+	var parsedData LocationArea
+	if err := json.Unmarshal(result, &parsedData); err != nil {
+		t.Errorf("failed to parse returned JSON: %v", err)
+		return
+	}
+
+	if parsedData.Count != testData.Count {
+		t.Errorf("expected count %d, got %d", testData.Count, parsedData.Count)
+		return
+	}
+
+	if len(parsedData.Results) != len(testData.Results) {
+		t.Errorf("expected %d results, got %d", len(testData.Results), len(parsedData.Results))
 		return
 	}
 
@@ -65,7 +77,7 @@ func TestApiRequestCacheMiss(t *testing.T) {
 
 func TestApiRequestCacheHit(t *testing.T) {
 	// Create test data
-	testData := locationArea{
+	testData := LocationArea{
 		Count: 1281,
 		Next:  "https://pokeapi.co/api/v2/location-area/?offset=20&limit=20",
 		Results: []struct {
@@ -104,17 +116,24 @@ func TestApiRequestCacheHit(t *testing.T) {
 		return
 	}
 
-	if result.Count != testData.Count {
-		t.Errorf("expected count %d from cache, got %d", testData.Count, result.Count)
+	// Parse the returned JSON to verify it's the cached data
+	var parsedResult LocationArea
+	if err := json.Unmarshal(result, &parsedResult); err != nil {
+		t.Errorf("failed to parse cached JSON: %v", err)
 		return
 	}
 
-	if len(result.Results) != len(testData.Results) {
-		t.Errorf("expected %d results from cache, got %d", len(testData.Results), len(result.Results))
+	if parsedResult.Count != testData.Count {
+		t.Errorf("expected count %d from cache, got %d", testData.Count, parsedResult.Count)
 		return
 	}
 
-	if result.Results[0].Name != "cached-area-1" {
+	if len(parsedResult.Results) != len(testData.Results) {
+		t.Errorf("expected %d results from cache, got %d", len(testData.Results), len(parsedResult.Results))
+		return
+	}
+
+	if parsedResult.Results[0].Name != "cached-area-1" {
 		t.Errorf("expected cached data, got different data")
 		return
 	}
@@ -157,22 +176,35 @@ func TestApiRequestInvalidJSON(t *testing.T) {
 	defer server.Close()
 
 	cache := pokecache.NewCache(5 * time.Minute)
-	_, err := ApiRequest(server.URL, cache)
+	result, err := ApiRequest(server.URL, cache)
 
-	if err == nil {
-		t.Errorf("expected error for invalid JSON, got nil")
+	if err != nil {
+		t.Errorf("unexpected error from ApiRequest: %v", err)
 		return
 	}
 
-	if !strings.Contains(err.Error(), "Error unmarshalling JSON") {
-		t.Errorf("expected JSON unmarshalling error, got: %v", err)
+	// ApiRequest should succeed and return the raw bytes
+	if result == nil {
+		t.Errorf("expected raw response data, got nil")
 		return
 	}
 
-	// Verify invalid JSON was still cached (since the HTTP request succeeded)
-	_, exists := cache.Get(server.URL)
+	// Verify the invalid JSON is what we expect
+	expected := "invalid json {"
+	if string(result) != expected {
+		t.Errorf("expected raw data '%s', got '%s'", expected, string(result))
+		return
+	}
+
+	// Verify invalid JSON was cached (since the HTTP request succeeded)
+	cachedData, exists := cache.Get(server.URL)
 	if !exists {
 		t.Errorf("response should be cached even if JSON is invalid")
+		return
+	}
+
+	if string(cachedData) != expected {
+		t.Errorf("cached data doesn't match returned data")
 		return
 	}
 }
@@ -187,15 +219,21 @@ func TestApiRequestCachedInvalidJSON(t *testing.T) {
 	cache.Add(testURL, invalidJSON)
 
 	// Try to use the cached invalid JSON
-	_, err := ApiRequest(testURL, cache)
+	result, err := ApiRequest(testURL, cache)
 
-	if err == nil {
-		t.Errorf("expected error for invalid cached JSON, got nil")
+	if err != nil {
+		t.Errorf("unexpected error from ApiRequest: %v", err)
 		return
 	}
 
-	if !strings.Contains(err.Error(), "Error unmarshalling JSON") {
-		t.Errorf("expected JSON unmarshalling error from cache, got: %v", err)
+	// Should return the cached invalid JSON as raw bytes
+	if result == nil {
+		t.Errorf("expected cached data, got nil")
+		return
+	}
+
+	if string(result) != string(invalidJSON) {
+		t.Errorf("cached data doesn't match what was stored")
 		return
 	}
 }

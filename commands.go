@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"pokedexcli/internal/api"
 	"pokedexcli/internal/pokecache"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -56,7 +59,7 @@ func createCommandMap() map[string]cliCommand {
 	}
 	commands["explore"] = cliCommand{
 		name:        "explore",
-		description: "Display a list of the previous 20 location areas in the Pokemon games",
+		description: "Display a list of Pokemon in the provided area. Accepts a single location area as an argument.",
 		callback:    func(arg string) error { return commandExplore(arg, commands) },
 		config: &config{
 			pokecache: freshCache,
@@ -75,16 +78,31 @@ func commandHelp(_ string, commands map[string]cliCommand) error {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 	fmt.Println()
-	for _, cmd := range commands {
-		fmt.Printf("%s: %s\n", cmd.name, cmd.description)
+
+	keys := make([]string, 0, len(commands))
+	for k := range commands {
+		keys = append(keys, k)
+	}
+
+	// Sort the keys
+	sort.Strings(keys)
+
+	// Iterate over the sorted keys and print values
+	for _, k := range keys {
+		fmt.Printf("%s: %s\n", commands[k].name, commands[k].description)
 	}
 	return nil
 }
 
 func commandMap(_ string, commands map[string]cliCommand) error {
-	areas, err := api.ApiRequest(commands["map"].config.next, commands["map"].config.pokecache)
+	body, err := api.ApiRequest(commands["map"].config.next, commands["map"].config.pokecache)
 	if err != nil {
 		return fmt.Errorf("Error making API call: %w", err)
+	}
+
+	var areas api.LocationArea
+	if err := json.Unmarshal(body, &areas); err != nil {
+		return fmt.Errorf("Error unmarshalling JSON: %v", err)
 	}
 
 	for _, area := range areas.Results {
@@ -100,14 +118,19 @@ func commandMap(_ string, commands map[string]cliCommand) error {
 func commandMapb(_ string, commands map[string]cliCommand) error {
 	if commands["mapb"].config != nil {
 		if commands["mapb"].config.previous == "" {
-			fmt.Print("You are already on the first page.")
+			fmt.Println("You are already on the first page.")
 			return nil
 		}
 	}
+	var areas api.LocationArea
 
-	areas, err := api.ApiRequest(commands["mapb"].config.previous, commands["mapb"].config.pokecache)
+	body, err := api.ApiRequest(commands["mapb"].config.previous, commands["mapb"].config.pokecache)
 	if err != nil {
 		return fmt.Errorf("Error making API call: %w", err)
+	}
+
+	if err := json.Unmarshal(body, &areas); err != nil {
+		return fmt.Errorf("Error unmarshalling JSON: %w", err)
 	}
 
 	for _, area := range areas.Results {
@@ -121,6 +144,30 @@ func commandMapb(_ string, commands map[string]cliCommand) error {
 }
 
 func commandExplore(arg string, commands map[string]cliCommand) error {
+	if strings.TrimSpace(arg) == "" {
+		fmt.Print("Please provide a location to check for Pokemon")
+		return nil
+	}
 	fmt.Printf("Exploring %s...\n", arg)
+
+	var pokemons api.Area
+	body, err := api.ApiRequest("https://pokeapi.co/api/v2/location-area/"+arg, commands["explore"].config.pokecache)
+	if err != nil {
+		if strings.Contains(err.Error(), "status code: 404") {
+			return fmt.Errorf("Area '%s' does not exist. Please check spelling and try again", arg)
+		}
+		return fmt.Errorf("Error exploring area: %w", err)
+	}
+
+	if err := json.Unmarshal(body, &pokemons); err != nil {
+		return fmt.Errorf("Error unmarshalling JSON: %w", err)
+	}
+
+	if pokemons.PokemonEncounters != nil {
+		fmt.Print("Found Pokemon:\n")
+		for _, pokemon := range pokemons.PokemonEncounters {
+			fmt.Printf(" - %s\n", pokemon.Pokemon.Name)
+		}
+	}
 	return nil
 }
