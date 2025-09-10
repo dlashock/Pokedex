@@ -29,7 +29,7 @@ func createCommandMap() map[string]cliCommand {
 	commands := map[string]cliCommand{}
 	commands["help"] = cliCommand{
 		name:        "help",
-		description: "Displays a help message",
+		description: "Displays all available commands and information about what they do",
 		callback:    func(arg string) error { return commandHelp(arg, commands) },
 		config:      &config{pokecache: freshCache},
 	}
@@ -41,7 +41,7 @@ func createCommandMap() map[string]cliCommand {
 	}
 	commands["map"] = cliCommand{
 		name:        "map",
-		description: "Display a list of the next 20 location areas in the Pokemon games",
+		description: "Display a list of the next 20 location areas in the Pokemon games.",
 		callback:    func(arg string) error { return commandMap(arg, commands) },
 		config: &config{
 			next:      "https://pokeapi.co/api/v2/location-area/",
@@ -59,8 +59,16 @@ func createCommandMap() map[string]cliCommand {
 	}
 	commands["explore"] = cliCommand{
 		name:        "explore",
-		description: "Display a list of Pokemon in the provided area. Accepts a single location area as an argument.",
+		description: "Display a list of Pokemon in the provided area. Accepts a single location area as an argument",
 		callback:    func(arg string) error { return commandExplore(arg, commands) },
+		config: &config{
+			pokecache: freshCache,
+		},
+	}
+	commands["catch"] = cliCommand{
+		name:        "catch",
+		description: "Try to catch a Pokemon in the current area",
+		callback:    func(arg string) error { return commandCatch(arg, commands) },
 		config: &config{
 			pokecache: freshCache,
 		},
@@ -150,7 +158,7 @@ func commandExplore(arg string, commands map[string]cliCommand) error {
 	}
 	fmt.Printf("Exploring %s...\n", arg)
 
-	var pokemons api.Area
+	var area api.Area
 	body, err := api.ApiRequest("https://pokeapi.co/api/v2/location-area/"+arg, commands["explore"].config.pokecache)
 	if err != nil {
 		if strings.Contains(err.Error(), "status code: 404") {
@@ -159,15 +167,46 @@ func commandExplore(arg string, commands map[string]cliCommand) error {
 		return fmt.Errorf("Error exploring area: %w", err)
 	}
 
-	if err := json.Unmarshal(body, &pokemons); err != nil {
+	if err := json.Unmarshal(body, &area); err != nil {
 		return fmt.Errorf("Error unmarshalling JSON: %w", err)
 	}
 
-	if pokemons.PokemonEncounters != nil {
+	if area.PokemonEncounters != nil {
 		fmt.Print("Found Pokemon:\n")
-		for _, pokemon := range pokemons.PokemonEncounters {
+		for _, pokemon := range area.PokemonEncounters {
 			fmt.Printf(" - %s\n", pokemon.Pokemon.Name)
 		}
 	}
 	return nil
+}
+
+func commandCatch(arg string, commands map[string]cliCommand) error {
+	fmt.Printf("Throwing a PokeBall at %s...\n", arg)
+
+	var pokemon api.Pokemon
+	body, err := api.ApiRequest("https://pokeapi.co/api/v2/pokemon/"+arg, commands["catch"].config.pokecache)
+	if err != nil {
+		if strings.Contains(err.Error(), "status code: 404") {
+			return fmt.Errorf("Pokemon '%s' does not exist. Please check spelling and try again", arg)
+		}
+		return fmt.Errorf("Error trying to catch %s: %w", arg, err)
+	}
+
+	if err := json.Unmarshal(body, &pokemon); err != nil {
+		return fmt.Errorf("Error unmarshalling JSON: %w", err)
+	}
+
+	catch := catchChance(pokemon.BaseExperience)
+
+	if catch {
+		fmt.Printf("%s was caught!\n", arg)
+	} else {
+		fmt.Printf("%s escaped!\n", arg)
+	}
+
+	return nil
+}
+
+func catchChance(baseEXP int) bool {
+	return false
 }
