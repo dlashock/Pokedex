@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"math/rand"
 	"os"
 	"pokedexcli/internal/api"
 	"pokedexcli/internal/pokecache"
@@ -15,6 +17,7 @@ type config struct {
 	next      string
 	previous  string
 	pokecache *pokecache.Cache
+	pokedex   map[string]api.Pokemon
 }
 
 type cliCommand struct {
@@ -25,53 +28,66 @@ type cliCommand struct {
 }
 
 func createCommandMap() map[string]cliCommand {
-	freshCache := pokecache.NewCache(5 * time.Minute)
+	freshCache := pokecache.NewCache(2 * time.Minute)
 	commands := map[string]cliCommand{}
+
+	sharedConfig := &config{
+		next:      "https://pokeapi.co/api/v2/location-area/",
+		previous:  "",
+		pokecache: freshCache,
+		pokedex:   make(map[string]api.Pokemon),
+	}
+
 	commands["help"] = cliCommand{
 		name:        "help",
 		description: "Displays all available commands and information about what they do",
 		callback:    func(arg string) error { return commandHelp(arg, commands) },
-		config:      &config{pokecache: freshCache},
+		config:      sharedConfig,
 	}
 	commands["exit"] = cliCommand{
 		name:        "exit",
 		description: "Exit the Pokedex",
 		callback:    commandExit,
-		config:      &config{pokecache: freshCache},
+		config:      sharedConfig,
 	}
 	commands["map"] = cliCommand{
 		name:        "map",
 		description: "Display a list of the next 20 location areas in the Pokemon games.",
 		callback:    func(arg string) error { return commandMap(arg, commands) },
-		config: &config{
-			next:      "https://pokeapi.co/api/v2/location-area/",
-			pokecache: freshCache,
-		},
+		config:      sharedConfig,
 	}
 	commands["mapb"] = cliCommand{
 		name:        "mapb",
 		description: "Display a list of the previous 20 location areas in the Pokemon games",
 		callback:    func(arg string) error { return commandMapb(arg, commands) },
-		config: &config{
-			previous:  "",
-			pokecache: freshCache,
-		},
+		config:      sharedConfig,
 	}
 	commands["explore"] = cliCommand{
 		name:        "explore",
 		description: "Display a list of Pokemon in the provided area. Accepts a single location area as an argument",
 		callback:    func(arg string) error { return commandExplore(arg, commands) },
-		config: &config{
-			pokecache: freshCache,
-		},
+		config:      sharedConfig,
 	}
 	commands["catch"] = cliCommand{
 		name:        "catch",
-		description: "Try to catch a Pokemon in the current area",
+		description: "Try to catch a Pokemon! Takes a Pokemon name as an an argument",
 		callback:    func(arg string) error { return commandCatch(arg, commands) },
-		config: &config{
-			pokecache: freshCache,
+		config:      sharedConfig,
+	}
+	commands["inspect"] = cliCommand{
+		name:        "inspect",
+		description: "See details of a Pokemon you have caught. Takes the name of a Pokemon as an argument",
+		callback:    func(arg string) error { return commandInspect(arg, commands) },
+		config:      sharedConfig,
+	}
+	commands["pokedex"] = cliCommand{
+		name:        "pokedex",
+		description: "See the list of Pokemon you have caught",
+		callback: func(arg string) error {
+			commandPokedex(commands)
+			return nil
 		},
+		config: sharedConfig,
 	}
 	return commands
 }
@@ -181,7 +197,7 @@ func commandExplore(arg string, commands map[string]cliCommand) error {
 }
 
 func commandCatch(arg string, commands map[string]cliCommand) error {
-	fmt.Printf("Throwing a PokeBall at %s...\n", arg)
+	fmt.Printf("Throwing a Pokeball at %s...\n", arg)
 
 	var pokemon api.Pokemon
 	body, err := api.ApiRequest("https://pokeapi.co/api/v2/pokemon/"+arg, commands["catch"].config.pokecache)
@@ -196,10 +212,12 @@ func commandCatch(arg string, commands map[string]cliCommand) error {
 		return fmt.Errorf("Error unmarshalling JSON: %w", err)
 	}
 
-	catch := catchChance(pokemon.BaseExperience)
+	catch := catchAttempt(pokemon.BaseExperience)
 
 	if catch {
+		commands["catch"].config.pokedex[arg] = pokemon
 		fmt.Printf("%s was caught!\n", arg)
+		fmt.Println("You may now inspect it with the inspect command")
 	} else {
 		fmt.Printf("%s escaped!\n", arg)
 	}
@@ -207,6 +225,40 @@ func commandCatch(arg string, commands map[string]cliCommand) error {
 	return nil
 }
 
-func catchChance(baseEXP int) bool {
-	return false
+func catchAttempt(baseEXP int) bool {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	catch_rate := 1.95 - 0.279*math.Log(float64(baseEXP))
+	rand_num := rng.Float64()
+	return catch_rate > rand_num
+}
+
+func commandInspect(arg string, commands map[string]cliCommand) error {
+	val, exists := commands["inspect"].config.pokedex[arg]
+	if !exists {
+		fmt.Printf("You have not caught %s yet!\n", arg)
+		return nil
+	}
+	printPokemon(val)
+	return nil
+}
+
+func printPokemon(mon api.Pokemon) {
+	fmt.Printf("Name: %s\n", mon.Name)
+	fmt.Printf("Height: %d\n", mon.Height)
+	fmt.Printf("Weight: %d\n", mon.Weight)
+	fmt.Printf("Stats:\n")
+	for _, stat := range mon.Stats {
+		fmt.Printf(" -%s: %d\n", stat.Stat.Name, stat.BaseStat)
+	}
+	fmt.Printf("Types:\n")
+	for _, t := range mon.Types {
+		fmt.Printf(" - %s\n", t.Type.Name)
+	}
+}
+
+func commandPokedex(commands map[string]cliCommand) {
+	fmt.Println("Your Pokedex:")
+	for _, pokemon := range commands["pokedex"].config.pokedex {
+		fmt.Printf(" - %s\n", pokemon.Name)
+	}
 }
