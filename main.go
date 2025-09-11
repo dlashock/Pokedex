@@ -1,9 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
+	"strings"
+
+	"github.com/chzyer/readline"
 )
 
 func main() {
@@ -11,33 +13,48 @@ func main() {
 	commands := createCommandMap()
 
 	//Initialize input buffer
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Print("Pokedex > ")
+	rl, err := readline.New("Pokedex > ")
+	if err != nil {
+		fmt.Println("Error initializing readline:", err)
+		os.Exit(1)
+	}
 
 	//Begin accepting input
-	for scanner.Scan() {
-		line := scanner.Text()
+	for {
+		line, err := rl.Readline()
+		if err != nil {
+			// Handle EOF (Ctrl+D) gracefully
+			fmt.Println("\nClosing the Pokedex... Goodbye!")
+			break
+		}
 
 		//Clean provided input by separating by whitespace and forcing lowecase
 		words := cleanInput(line)
 
 		//Ask for input if none was provided
 		if len(words) == 0 {
-			fmt.Println("Please enter a command")
-			fmt.Print("Pokedex > ")
 			continue
 		}
 
 		//Check if the command exists in the command map and execute if so
 		command, exists := commands[words[0]]
 		if exists {
-			if len(words) > 1 {
-				err := command.callback(words[1])
+			// Handle special case for inspect command with -sprite flag
+			if words[0] == "inspect" && len(words) > 2 && words[len(words)-1] == "-sprite" {
+				// Remove the -sprite flag and join the remaining words for Pokemon name
+				pokemonName := strings.Join(words[1:len(words)-1], "-")
+				err := commandInspectSprite(pokemonName, commands)
 				if err != nil {
 					fmt.Printf("An error has occurred: %s\n", err)
 				}
 			} else {
-				err := command.callback("")
+				// Join all words after the command with dashes for multi-word Pokemon names
+				var arg string
+				if len(words) > 1 {
+					arg = strings.Join(words[1:], "-")
+				}
+
+				err := command.callback(arg)
 				if err != nil {
 					fmt.Printf("An error has occurred: %s\n", err)
 				}
@@ -45,8 +62,5 @@ func main() {
 		} else {
 			fmt.Println("Unknown command")
 		}
-
-		//Print line to start the loop over
-		fmt.Print("Pokedex > ")
 	}
 }

@@ -341,26 +341,58 @@ type Pokemon struct {
 	Weight int `json:"weight"`
 }
 
+// ApiRequest makes HTTP requests to the PokéAPI with caching support
 func ApiRequest(url string, cache *pokecache.Cache) ([]byte, error) {
+	// Check cache first
 	body, exists := cache.Get(url)
-	if !exists {
-		res, err := http.Get(url)
-		if err != nil {
-			return body, fmt.Errorf("Error requesting data: %w", err)
-		}
-		defer res.Body.Close()
-
-		if res.StatusCode != http.StatusOK {
-			return body, fmt.Errorf("Request failed with status code: %v", res.StatusCode)
-		}
-
-		body, err = io.ReadAll(res.Body)
-		if err != nil {
-			return body, fmt.Errorf("Error reading body: %w", err)
-		}
-
-		cache.Add(url, body)
+	if exists {
+		return body, nil
 	}
 
+	// Make HTTP request
+	res, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("network error: %w", err)
+	}
+	defer res.Body.Close()
+
+	// Check for HTTP errors
+	if res.StatusCode != http.StatusOK {
+		return nil, NewAPIError(res.StatusCode, http.StatusText(res.StatusCode), url)
+	}
+
+	// Read response body
+	body, err = io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %w", err)
+	}
+
+	// Cache the response
+	cache.Add(url, body)
 	return body, nil
+}
+
+// APIError represents HTTP API errors with status codes
+type APIError struct {
+	StatusCode int
+	Message    string
+	URL        string
+}
+
+func (e APIError) Error() string {
+	return fmt.Sprintf("API request failed: %s (status: %d, url: %s)", e.Message, e.StatusCode, e.URL)
+}
+
+// IsNotFound checks if the error is a 404 Not Found
+func (e APIError) IsNotFound() bool {
+	return e.StatusCode == http.StatusNotFound
+}
+
+// NewAPIError creates a new APIError
+func NewAPIError(statusCode int, message, url string) APIError {
+	return APIError{
+		StatusCode: statusCode,
+		Message:    message,
+		URL:        url,
+	}
 }

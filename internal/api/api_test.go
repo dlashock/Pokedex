@@ -154,8 +154,14 @@ func TestApiRequestHTTPError(t *testing.T) {
 		return
 	}
 
-	if !strings.Contains(err.Error(), "Request failed with status code: 404") {
-		t.Errorf("expected status code error, got: %v", err)
+	// Check if it's the correct APIError type
+	if apiErr, ok := err.(APIError); ok {
+		if !apiErr.IsNotFound() {
+			t.Errorf("expected 404 error, got status code: %d", apiErr.StatusCode)
+			return
+		}
+	} else {
+		t.Errorf("expected APIError type, got: %T", err)
 		return
 	}
 

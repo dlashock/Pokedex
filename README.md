@@ -8,6 +8,7 @@ A feature-rich command-line Pokédex game built with Go that provides an interac
 - **Location Mapping**: Browse through Pokémon location areas with pagination
 - **Pokémon Exploration**: Discover which Pokémon inhabit specific areas
 - **Pokémon Catching**: Catch Pokémon with probability-based mechanics
+- **Multi-word Support**: Handle Pokémon names with spaces (e.g., "mr mime" → "mr-mime")
 - **Collection Management**: Build and view your personal Pokédex
 - **Intelligent Caching**: Built-in caching system with automatic TTL cleanup for blazing-fast response times
 - **Thread-Safe**: Concurrent access support with mutex-protected operations
@@ -75,6 +76,11 @@ Throwing a Pokeball at magikarp...
 magikarp was caught!
 You may now inspect it with the inspect command
 
+Pokedex > catch mr mime
+Throwing a Pokeball at mr-mime...
+mr-mime was caught!
+You may now inspect it with the inspect command
+
 Pokedex > inspect magikarp
 Name: magikarp
 Height: 9
@@ -92,6 +98,7 @@ Types:
 Pokedex > pokedex
 Your Pokedex:
  - magikarp
+ - mr-mime
 
 Pokedex > exit
 Closing the Pokedex... Goodbye!
