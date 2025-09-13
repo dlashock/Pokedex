@@ -227,12 +227,6 @@ func commandCatch(arg string, commands map[string]cliCommand) error {
 		commands["catch"].config.pokedex[arg] = pokemon
 		fmt.Printf("%s was caught!\n", arg)
 		fmt.Println("You may now inspect it with the inspect command")
-		
-		// Save the updated Pokédex
-		if err := commands["catch"].config.storageManager.SavePokedex(commands["catch"].config.pokedex); err != nil {
-			fmt.Printf("Warning: Failed to save Pokédex: %v\n", err)
-			fmt.Println("Your progress is still safe in memory for this session.")
-		}
 	} else {
 		fmt.Printf("%s escaped!\n", arg)
 	}
